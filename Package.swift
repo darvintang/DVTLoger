@@ -5,22 +5,31 @@ import PackageDescription
 
 let package = Package(
     name: "DVTLoger",
-    platforms: [.macOS(.v10_10),
-                .iOS(.v10),
-                .tvOS(.v9),
-                .watchOS(.v2)],
+
+    platforms: [
+        .macOS(.v10_12),
+        .iOS(.v10),
+        .tvOS(.v10),
+        .watchOS(.v3)
+    ],
+
     products: [
-        // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "DVTLoger",
-            targets: ["DVTLoger"]),
+            targets: ["DVTLoger"]
+        ),
     ],
+
     targets: [
         .target(
             name: "DVTLoger",
-            path: "Sources"),
+            path: "Sources"
+        ),
         .testTarget(
             name: "DVTLogerTests",
-            dependencies: ["DVTLoger"]),
-    ]
+            dependencies: ["DVTLoger"]
+        ),
+    ],
+    
+    swiftLanguageVersions: [.v5]
 )
