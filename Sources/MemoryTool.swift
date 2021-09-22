@@ -1,9 +1,35 @@
 //
 //  MemoryTool.swift
 //
-//  Created by MJ Lee on 2019/6/22.
-//  Copyright © 2019 MJ Lee. All rights reserved.
 //
+//  Created by darvintang on 2019/6/22.
+//
+
+/*
+
+ MIT License
+
+ Copyright (c) 2021 darvintang http://blog.tcoding.cn
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+
+ */
 
 import Foundation
 
@@ -16,8 +42,8 @@ private let _EMPTY_PTR = UnsafeRawPointer(bitPattern: 0x1)!
 /// 辅助查看内存的小工具类
 public struct Memory<T> {
     private static func _memString(_ pointer: UnsafeRawPointer,
-                                _ size: Int,
-                                _ aligment: Int) -> String {
+                                   _ size: Int,
+                                   _ aligment: Int) -> String {
         if pointer == _EMPTY_PTR { return "" }
 
         var rawPtr = pointer
@@ -46,7 +72,7 @@ public struct Memory<T> {
     }
 
     private static func _memoryBytes(_ pointer: UnsafeRawPointer,
-                                  _ size: Int) -> [UInt8] {
+                                     _ size: Int) -> [UInt8] {
         var array: [UInt8] = []
         if pointer == _EMPTY_PTR { return array }
         for i in 0 ..< size {
@@ -72,7 +98,7 @@ public struct Memory<T> {
     public static func memoryString(ofValue value: inout T, alignment: MemoryAlign? = nil) -> String {
         let pointer = self.pointer(ofValue: &value)
         return self._memString(pointer, MemoryLayout.stride(ofValue: value),
-                            alignment != nil ? alignment!.rawValue : MemoryLayout.alignment(ofValue: value))
+                               alignment != nil ? alignment!.rawValue : MemoryLayout.alignment(ofValue: value))
     }
 
     /// 获得引用所指向的内存数据（字符串格式）
@@ -81,7 +107,7 @@ public struct Memory<T> {
     public static func memoryString(ofReference value: T, alignment: MemoryAlign? = nil) -> String {
         let pointer = self.pointer(ofReference: value)
         return self._memString(pointer, malloc_size(pointer),
-                            alignment != nil ? alignment!.rawValue : MemoryLayout.alignment(ofValue: value))
+                               alignment != nil ? alignment!.rawValue : MemoryLayout.alignment(ofValue: value))
     }
 
     /// 获得变量的内存地址
