@@ -1,6 +1,6 @@
 //
 //  DVTLoger.swift
-//  
+//
 //
 //  Created by darvintang on 2018/1/3.
 //
@@ -266,7 +266,8 @@ extension Loger {
                          function: String,
                          file: String,
                          line: Int,
-                         value: [Any]) -> String {
+                         value: [Any],
+                         separator: String) -> String {
         if self.logLevel > level {
             return ""
         }
@@ -306,7 +307,7 @@ extension Loger {
         var logString = ""
         value.forEach { tempValue in
             var tempLog = ""
-            print(tempValue, terminator: "", to: &tempLog)
+            print(tempValue, terminator: separator, to: &tempLog)
             logString += tempLog
         }
         logString = infoString + (infoString.isEmpty ? "" : " => ") + logString
@@ -320,29 +321,33 @@ extension Loger {
     @discardableResult public func info(function: String = #function,
                                         file: String = #file,
                                         line: Int = #line,
-                                        _ value: Any...) -> String {
-        return self.log(.info, function: function, file: file, line: line, value: value)
+                                        _ value: Any...,
+                                        separator: String = " ") -> String {
+        return self.log(.info, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public func debug(function: String = #function,
                                          file: String = #file,
                                          line: Int = #line,
-                                         _ value: Any...) -> String {
-        return self.log(.debug, function: function, file: file, line: line, value: value)
+                                         _ value: Any...,
+                                         separator: String = " ") -> String {
+        return self.log(.debug, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public func warning(function: String = #function,
                                            file: String = #file,
                                            line: Int = #line,
-                                           _ value: Any...) -> String {
-        return self.log(.warning, function: function, file: file, line: line, value: value)
+                                           _ value: Any...,
+                                           separator: String = " ") -> String {
+        return self.log(.warning, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public func error(function: String = #function,
                                          file: String = #file,
                                          line: Int = #line,
-                                         _ value: Any...) -> String {
-        return self.log(.error, function: function, file: file, line: line, value: value)
+                                         _ value: Any...,
+                                         separator: String = " ") -> String {
+        return self.log(.error, function: function, file: file, line: line, value: value, separator: separator)
     }
 }
 
@@ -352,28 +357,32 @@ extension Loger {
     @discardableResult public static func info(function: String = #function,
                                                file: String = #file,
                                                line: Int = #line,
-                                               _ value: Any...) -> String {
-        return selfLoger.log(.info, function: function, file: file, line: line, value: value)
+                                               _ value: Any...,
+                                               separator: String = " ") -> String {
+        return selfLoger.log(.info, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public static func debug(function: String = #function,
                                                 file: String = #file,
                                                 line: Int = #line,
-                                                _ value: Any...) -> String {
-        return selfLoger.log(.debug, function: function, file: file, line: line, value: value)
+                                                _ value: Any...,
+                                                separator: String = " ") -> String {
+        return selfLoger.log(.debug, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public static func warning(function: String = #function,
                                                   file: String = #file,
                                                   line: Int = #line,
-                                                  _ value: Any...) -> String {
-        return selfLoger.log(.warning, function: function, file: file, line: line, value: value)
+                                                  _ value: Any...,
+                                                  separator: String = " ") -> String {
+        return selfLoger.log(.warning, function: function, file: file, line: line, value: value, separator: separator)
     }
 
     @discardableResult public static func error(function: String = #function,
                                                 file: String = #file,
                                                 line: Int = #line,
-                                                _ value: Any...) -> String {
-        return selfLoger.log(.error, function: function, file: file, line: line, value: value)
+                                                _ value: Any...,
+                                                separator: String = " ") -> String {
+        return selfLoger.log(.error, function: function, file: file, line: line, value: value, separator: separator)
     }
 }
