@@ -1,11 +1,9 @@
-import XCTest
+@testable import DVTFoundation
 @testable import DVTLoger
+import XCTest
 
 final class DVTLogerTests: XCTestCase {
     func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        XCTAssertEqual(DVTLoger().text, "Hello, World!")
+        XCTAssertEqual(str, dvt)
     }
 }
