@@ -2,7 +2,7 @@
 //  DVTLoger.swift
 //
 //
-//  Created by darvintang on 2018/1/3.
+//  Created by darvin on 2018/1/3.
 //
 
 /*
@@ -185,31 +185,31 @@ extension Loger {
     fileprivate func returnFileName(_ level: LogerLevel) -> String {
         var fileNameString = ""
         switch level {
-        case .info:
-            fileNameString = "info"
-        case .debug:
-            fileNameString = "debug"
-        case .warning:
-            fileNameString = "warning"
-        case .error:
-            fileNameString = "error"
-        default:
-            break
+            case .info:
+                fileNameString = "info"
+            case .debug:
+                fileNameString = "debug"
+            case .warning:
+                fileNameString = "warning"
+            case .error:
+                fileNameString = "error"
+            default:
+                break
         }
         let dateComponents = Calendar.current.dateComponents(Set<Calendar.Component>.init(arrayLiteral: .year, .month, .day, .weekOfYear), from: Date())
         let fileFormatters = self.fileFormatter.components(separatedBy: "-")
         fileFormatters.forEach { string in
             switch string {
-            case "D":
-                fileNameString += "-\(dateComponents.day!)"
-            case "WY":
-                fileNameString += "-\(dateComponents.weekOfYear!)"
-            case "M":
-                fileNameString += "-\(dateComponents.month!)"
-            case "Y":
-                fileNameString += "-\(dateComponents.year!)"
-            default:
-                break
+                case "D":
+                    fileNameString += "-\(dateComponents.day!)"
+                case "WY":
+                    fileNameString += "-\(dateComponents.weekOfYear!)"
+                case "M":
+                    fileNameString += "-\(dateComponents.month!)"
+                case "Y":
+                    fileNameString += "-\(dateComponents.year!)"
+                default:
+                    break
             }
         }
         fileNameString += ".log"
@@ -243,10 +243,10 @@ extension Loger {
                         tempFormat = String(format: tempFormat, cVarArg)
                     } else {
                         switch arg {
-                        case let .some(tempArg):
-                            tempFormat = String(format: tempFormat, "\(tempArg)")
-                        case .none:
-                            tempFormat = String(format: tempFormat, "nil")
+                            case let .some(tempArg):
+                                tempFormat = String(format: tempFormat, "\(tempArg)")
+                            case .none:
+                                tempFormat = String(format: tempFormat, "nil")
                         }
                     }
                 }
@@ -275,16 +275,16 @@ extension Loger {
         let dateTime = self.isShowLongTime ? "\(self.dateFormatter.string(from: Date()))" : "\(self.dateShortFormatter.string(from: Date()))"
         var levelString = "[\(self.logerName)] "
         switch level {
-        case .info:
-            levelString += "[INFO]"
-        case .debug:
-            levelString += "[DEBUG]"
-        case .warning:
-            levelString += "[WARNING]"
-        case .error:
-            levelString += "[ERROR]"
-        default:
-            break
+            case .info:
+                levelString += "[📠]"
+            case .debug:
+                levelString += "[📎]"
+            case .warning:
+                levelString += "[❗️]"
+            case .error:
+                levelString += "[✖️]"
+            default:
+                break
         }
         levelString = self.isShowLevel ? levelString : ""
 
