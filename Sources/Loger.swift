@@ -36,12 +36,12 @@ import Foundation
 public enum LogerLevel: Int {
     public typealias RawValue = Int
 
-    case all = 0
-    case info = 1
-    case debug = 2
+    case all = -1
+    case debug = 1
+    case info = 2
     case warning = 3
     case error = 4
-    case off = 5
+    case off = 999
 }
 
 extension LogerLevel: Comparable {
@@ -66,10 +66,6 @@ extension LogerLevel: Comparable {
 public class Loger {
     fileprivate let dateFormatter = DateFormatter()
     fileprivate let dateShortFormatter = DateFormatter()
-
-    public var logerName: String
-    /// 文件夹
-    fileprivate let logDirectory: String
 
     /// 保存到日志文件的等级
     public var saveFileLevel = LogerLevel.warning
@@ -105,15 +101,29 @@ public class Loger {
         #endif
     }
 
-    public required init(_ logDirectory: String = "", logerName: String = "default") {
-        self.dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+    fileprivate var _logerName: String?
+    public var logerName: String {
+        self._logerName ?? Bundle.main.bundleIdentifier?.components(separatedBy: ".").last?.capitalized ?? "Default"
+    }
+
+    fileprivate var _logDirectory: String?
+    fileprivate var logDirectory: String {
+        (self._logDirectory ?? self.logerName) + "/"
+    }
+
+    public convenience init(_ logDirectory: String = "", logerName: String) {
+        self.init(logerName)
+        self._logDirectory = logDirectory
+    }
+
+    public required init(_ name: String? = nil) {
+        self.dateFormatter.locale = Locale.current
         self.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-        self.dateShortFormatter.locale = Locale(identifier: "en_US_POSIX")
+        self.dateShortFormatter.locale = Locale.current
         self.dateShortFormatter.dateFormat = "HH:mm:ss.SSS"
         self.debugLogLevel = LogerLevel.all
         self.releaseLogLevel = LogerLevel.warning
-        self.logDirectory = logDirectory.appending("/\(logerName)/").replacingOccurrences(of: "//", with: "/")
-        self.logerName = logerName
+        self._logerName = name
     }
 }
 
@@ -161,7 +171,7 @@ extension Loger {
 
     fileprivate func xt_print(_ string: String) {
         #if DEBUG
-            print(string)
+            Swift.print(string)
         #endif
     }
 
@@ -275,14 +285,14 @@ extension Loger {
         let dateTime = self.isShowLongTime ? "\(self.dateFormatter.string(from: Date()))" : "\(self.dateShortFormatter.string(from: Date()))"
         var levelString = "[\(self.logerName)] "
         switch level {
-            case .info:
-                levelString += "[📠]"
             case .debug:
-                levelString += "[📎]"
+                levelString += "🟢"
+            case .info:
+                levelString += "⚪"
             case .warning:
-                levelString += "[❗️]"
+                levelString += "🟡"
             case .error:
-                levelString += "[❌]"
+                levelString += "🔴"
             default:
                 break
         }
@@ -307,7 +317,7 @@ extension Loger {
         var logString = ""
         value.forEach { tempValue in
             var tempLog = ""
-            print(tempValue, terminator: separator, to: &tempLog)
+            Swift.print(tempValue, terminator: separator, to: &tempLog)
             logString += tempLog
         }
         logString = infoString + (infoString.isEmpty ? "" : " => ") + logString
@@ -354,6 +364,7 @@ extension Loger {
 fileprivate let selfLoger = Loger()
 extension Loger {
     static var `default`: Loger = selfLoger
+
     @discardableResult public static func info(function: String = #function,
                                                file: String = #file,
                                                line: Int = #line,
