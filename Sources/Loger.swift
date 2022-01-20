@@ -9,7 +9,7 @@
 
  MIT License
 
- Copyright (c) 2021 darvintang http://blog.tcoding.cn
+ Copyright (c) 2021 darvin http://blog.tcoding.cn
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -32,16 +32,17 @@
  */
 
 import Foundation
+import Zip
 
 public enum LogerLevel: Int {
     public typealias RawValue = Int
 
-    case all = 0
-    case info = 1
-    case debug = 2
-    case warning = 3
-    case error = 4
-    case off = 5
+    case all = -1
+    case debug = 1 // "🟢"
+    case info = 2 // "⚪"
+    case warning = 3 // "🟡"
+    case error = 4 // "🔴"
+    case off = 999
 }
 
 extension LogerLevel: Comparable {
@@ -60,6 +61,10 @@ extension LogerLevel: Comparable {
     public static func > (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
         return lhs.rawValue > rhs.rawValue
     }
+
+    public static func == (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
+        return lhs.rawValue == rhs.rawValue
+    }
 }
 
 /// 请在 "Swift Compiler - Custom Flags" 选项查找 "Other Swift Flags" 然后在DEBUG配置那里添加"-D DEBUG".
@@ -67,12 +72,6 @@ public class Loger {
     fileprivate let dateFormatter = DateFormatter()
     fileprivate let dateShortFormatter = DateFormatter()
 
-    public var logerName: String
-    /// 文件夹
-    fileprivate let logDirectory: String
-
-    /// 保存到日志文件的等级
-    public var saveFileLevel = LogerLevel.warning
     /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day) 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M，通过这类的组合可以构成一个日志文件保存一天、一周、一个月、一年等方式。建议使用"Y-WY" or "Y-M"，一定要用"-"隔开
     public var fileFormatter = "Y-WY"
     /// 是否打印时间戳
@@ -83,10 +82,10 @@ public class Loger {
     /// 是否打印线程
     public var isShowThread = true
     /// release模式下默认打印日志的等级
-    public var releaseLogLevel: LogerLevel!
+    public var releaseLogLevel: LogerLevel
 
     /// debug模式下默认打印日志的等级
-    public var debugLogLevel: LogerLevel!
+    public var debugLogLevel: LogerLevel
 
     /// 是否打印文件名
     public var isShowFileName = true
@@ -105,15 +104,29 @@ public class Loger {
         #endif
     }
 
-    public required init(_ logDirectory: String = "", logerName: String = "default") {
-        self.dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+    fileprivate var _logerName: String?
+    public var logerName: String {
+        self._logerName ?? Bundle.main.bundleIdentifier?.components(separatedBy: ".").last?.capitalized ?? "Default"
+    }
+
+    fileprivate var _logDirectory: String?
+    fileprivate var logDirectory: String {
+        (self._logDirectory ?? self.logerName) + "/"
+    }
+
+    public convenience init(_ logDirectory: String = "", logerName: String) {
+        self.init(logerName)
+        self._logDirectory = logDirectory
+    }
+
+    public required init(_ name: String? = nil) {
+        self.dateFormatter.locale = Locale.current
         self.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-        self.dateShortFormatter.locale = Locale(identifier: "en_US_POSIX")
+        self.dateShortFormatter.locale = Locale.current
         self.dateShortFormatter.dateFormat = "HH:mm:ss.SSS"
         self.debugLogLevel = LogerLevel.all
         self.releaseLogLevel = LogerLevel.warning
-        self.logDirectory = logDirectory.appending("/\(logerName)/").replacingOccurrences(of: "//", with: "/")
-        self.logerName = logerName
+        self._logerName = name
     }
 }
 
@@ -133,7 +146,7 @@ extension Loger {
     /// 获取日志文件夹的路径，没有该文件夹就创建
     /// - Returns: 日志文件夹的路径
     public func getLogDirectory() -> String {
-        let logDirectoryPath = NSHomeDirectory() + "/Documents/DVTLoger/" + self.logDirectory
+        let logDirectoryPath = Self.getLogDirectory() + "/" + self.logDirectory
         if !FileManager.default.fileExists(atPath: logDirectoryPath) {
             try? FileManager.default.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true, attributes: nil)
         }
@@ -147,7 +160,27 @@ extension Loger {
         do {
             filesPath = try FileManager.default.contentsOfDirectory(atPath: self.getLogDirectory())
         } catch {}
-        return filesPath
+        return filesPath.compactMap({ self.getLogDirectory() + "/\($0)" })
+    }
+
+    /// 获取日志文件夹的路径，没有该文件夹就创建
+    /// - Returns: 日志文件夹的路径
+    public static func getLogDirectory() -> String {
+        let logDirectoryPath = NSHomeDirectory() + "/Documents/DVTLoger"
+        if !FileManager.default.fileExists(atPath: logDirectoryPath) {
+            try? FileManager.default.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true, attributes: nil)
+        }
+        return logDirectoryPath
+    }
+
+    /// 获取所有日志文件的路径
+    /// - Returns: 所有日志文件的路径
+    public static func getLogFilesPath() -> [String] {
+        var filesPath = [String]()
+        do {
+            filesPath = try FileManager.default.contentsOfDirectory(atPath: self.getLogDirectory())
+        } catch {}
+        return filesPath.compactMap({ self.getLogDirectory() + "/\($0)" })
     }
 
     /// 清理日志文件
@@ -159,9 +192,9 @@ extension Loger {
         return self.getLogFilesPath().isEmpty
     }
 
-    fileprivate func xt_print(_ string: String) {
+    fileprivate func dvt_print(_ string: String) {
         #if DEBUG
-            print(string)
+            Swift.print(string)
         #endif
     }
 
@@ -275,14 +308,14 @@ extension Loger {
         let dateTime = self.isShowLongTime ? "\(self.dateFormatter.string(from: Date()))" : "\(self.dateShortFormatter.string(from: Date()))"
         var levelString = "[\(self.logerName)] "
         switch level {
-            case .info:
-                levelString += "[📠]"
             case .debug:
-                levelString += "[📎]"
+                levelString += "🟢"
+            case .info:
+                levelString += "⚪"
             case .warning:
-                levelString += "[❗️]"
+                levelString += "🟡"
             case .error:
-                levelString += "[✖️]"
+                levelString += "🔴"
             default:
                 break
         }
@@ -307,12 +340,12 @@ extension Loger {
         var logString = ""
         value.forEach { tempValue in
             var tempLog = ""
-            print(tempValue, terminator: separator, to: &tempLog)
+            Swift.print(tempValue, terminator: separator, to: &tempLog)
             logString += tempLog
         }
         logString = infoString + (infoString.isEmpty ? "" : " => ") + logString
         self.printToFile(level, log: logString)
-        self.xt_print(logString)
+        self.dvt_print(logString)
         return logString + "\n"
     }
 }
@@ -353,7 +386,8 @@ extension Loger {
 
 fileprivate let selfLoger = Loger()
 extension Loger {
-    static var `default`: Loger = selfLoger
+    public static var `default`: Loger = selfLoger
+
     @discardableResult public static func info(function: String = #function,
                                                file: String = #file,
                                                line: Int = #line,
@@ -386,3 +420,53 @@ extension Loger {
         return selfLoger.log(.error, function: function, file: file, line: line, value: value, separator: separator)
     }
 }
+
+#if canImport(UIKit)
+    import UIKit
+
+    extension Loger {
+        public func getLogerFileZip(_ completion: @escaping (_ progress: Double, _ path: String) -> Void) {
+            let zipFilePath = self.getLogDirectory() + ".zip"
+            try? FileManager.default.removeItem(atPath: zipFilePath)
+            let paths = self.getLogFilesPath().compactMap { URL(fileURLWithPath: $0) }
+            try? Zip.zipFiles(paths: paths, zipFilePath: URL(fileURLWithPath: zipFilePath), password: nil) { progress in
+                completion(progress, zipFilePath)
+            }
+        }
+
+        public func shareLoger(form vc: UIViewController?, completion: ((_ progress: Double, _ path: String) -> Void)? = nil) {
+            self.getLogerFileZip { progress, path in
+                completion?(progress, path)
+                if progress == 1 {
+                    let actVC = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
+                    vc?.present(actVC, animated: true, completion: nil)
+                }
+            }
+        }
+
+        public static func getLogerFileZip(_ completion: @escaping (_ error: Error?, _ path: String?) -> Void) {
+            let zipFilePath = self.getLogDirectory() + ".zip"
+            try? FileManager.default.removeItem(atPath: zipFilePath)
+            let paths = self.getLogFilesPath().compactMap { URL(fileURLWithPath: $0) }
+            do {
+                try Zip.zipFiles(paths: paths, zipFilePath: URL(fileURLWithPath: zipFilePath), password: nil) { progress in
+                    if progress == 1 {
+                        completion(nil, zipFilePath)
+                    }
+                }
+            } catch let error {
+                completion(error, nil)
+            }
+        }
+
+        public static func shareLoger(form vc: UIViewController?, completion: ((_ error: Error?, _ path: String?) -> Void)? = nil) {
+            self.getLogerFileZip { error, path in
+                completion?(error, path)
+                if let tpath = path {
+                    let actVC = UIActivityViewController(activityItems: [URL(fileURLWithPath: tpath)], applicationActivities: nil)
+                    vc?.present(actVC, animated: true, completion: nil)
+                }
+            }
+        }
+    }
+#endif

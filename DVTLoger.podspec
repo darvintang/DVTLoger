@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'DVTLoger'
-  s.version          = '1.0.1'
+  s.version          = '1.0.4'
   s.summary          = 'DVTLoger'
 
   s.description      = <<-DESC
@@ -19,4 +19,6 @@ Pod::Spec.new do |s|
 
   s.swift_version = '5'
   s.requires_arc  = true
+  s.dependency 'Zip', '>= 2.1.1'
+
 end
