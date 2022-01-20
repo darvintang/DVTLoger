@@ -17,10 +17,15 @@ let package = Package(
             targets: ["DVTLoger"]
         ),
     ],
+    
+    dependencies: [
+        .package(url: "https://github.com/marmelroy/Zip.git", .upToNextMajor(from: "2.1.1")),
+    ],
 
     targets: [
         .target(
             name: "DVTLoger",
+            dependencies: ["Zip"],
             path: "Sources"
         ),
         .testTarget(
