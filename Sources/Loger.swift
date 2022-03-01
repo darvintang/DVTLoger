@@ -32,6 +32,7 @@
  */
 
 import Foundation
+import os
 import Zip
 
 public enum LogerLevel: Int {
@@ -81,14 +82,6 @@ public class Loger {
     public var isShowLevel = true
     /// 是否打印线程
     public var isShowThread = true
-    /// release模式下默认打印日志的等级
-    public var releaseLogLevel: LogerLevel
-
-    /// debug模式下默认打印日志的等级
-    public var debugLogLevel: LogerLevel
-
-    /// 是否打印文件名
-    public var isShowFileName = true
 
     /// 是否打印调用所在的函数名字
     public var isShowFunctionName = true
@@ -96,13 +89,13 @@ public class Loger {
     /// 是否打印调用所在的行数
     public var isShowLineNumber = true
 
-    private var logLevel: LogerLevel! {
-        #if DEBUG
-            return self.debugLogLevel
-        #else
-            return self.releaseLogLevel
-        #endif
-    }
+    /// 是否打印文件名
+    public var isShowFileName = true
+
+    /// 是否输出到控制台
+    public var toConsole = false
+
+    public var logLevel: LogerLevel = .all
 
     fileprivate var _logerName: String?
     public var logerName: String {
@@ -124,8 +117,6 @@ public class Loger {
         self.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         self.dateShortFormatter.locale = Locale.current
         self.dateShortFormatter.dateFormat = "HH:mm:ss.SSS"
-        self.debugLogLevel = LogerLevel.all
-        self.releaseLogLevel = LogerLevel.warning
         self._logerName = name
     }
 }
@@ -192,10 +183,15 @@ extension Loger {
         return self.getLogFilesPath().isEmpty
     }
 
-    fileprivate func dvt_print(_ string: String) {
-        #if DEBUG
-            Swift.print(string)
-        #endif
+    fileprivate func dvt_printToConsole(_ string: String) {
+        if #available(iOS 14.0, macOS 11.0,*) {
+            if let bundleIdentifier = Bundle.main.bundleIdentifier {
+                let logger = Logger(subsystem: bundleIdentifier, category: "\(self.logerName)")
+                logger.log("\(string, privacy: .public)")
+            }
+        } else {
+            os_log("%{public}@: %{public}@", log: .default, type: .info, "\(self.logerName)", string)
+        }
     }
 
     fileprivate func printToFile(_ level: LogerLevel, log string: String) {
@@ -306,7 +302,7 @@ extension Loger {
         }
 
         let dateTime = self.isShowLongTime ? "\(self.dateFormatter.string(from: Date()))" : "\(self.dateShortFormatter.string(from: Date()))"
-        var levelString = "[\(self.logerName)] "
+        var levelString = ""
         switch level {
             case .debug:
                 levelString += "🟢"
@@ -336,16 +332,25 @@ extension Loger {
 
         let threadId = String(unsafeBitCast(Thread.current, to: Int.self), radix: 16, uppercase: false)
         let isMain = self.isShowThread ? Thread.current.isMainThread ? "[Main]" : "[Global]<0x\(threadId)>" : ""
-        let infoString = "\(dateTime) \(levelString) \(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
+        let infoString = "\(levelString) \(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
+
         var logString = ""
         value.forEach { tempValue in
             var tempLog = ""
             Swift.print(tempValue, terminator: separator, to: &tempLog)
             logString += tempLog
         }
+
         logString = infoString + (infoString.isEmpty ? "" : " => ") + logString
+
+        if self.toConsole {
+            self.dvt_printToConsole(logString)
+        } else {
+            Swift.print("\(dateTime) [\(self.logerName)] " + logString)
+        }
+
+        logString = "\(dateTime) [\(self.logerName)] " + logString
         self.printToFile(level, log: logString)
-        self.dvt_print(logString)
         return logString + "\n"
     }
 }
