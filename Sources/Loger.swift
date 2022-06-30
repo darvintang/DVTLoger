@@ -35,41 +35,47 @@ import Foundation
 import os
 import Zip
 
-public enum LogerLevel: Int {
-    public typealias RawValue = Int
-
-    case all = -1
-    case debug = 1 // "🟢"
-    case info = 2 // "⚪"
-    case warning = 3 // "🟡"
-    case error = 4 // "🔴"
-    case off = 999
-}
-
-extension LogerLevel: Comparable {
-    public static func < (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue < rhs.rawValue
-    }
-
-    public static func <= (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue <= rhs.rawValue
-    }
-
-    public static func >= (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue >= rhs.rawValue
-    }
-
-    public static func > (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue > rhs.rawValue
-    }
-
-    public static func == (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue == rhs.rawValue
-    }
-}
-
-/// 请在 "Swift Compiler - Custom Flags" 选项查找 "Other Swift Flags" 然后在DEBUG配置那里添加"-D DEBUG".
 public class Loger {
+    public enum Level: Int, Comparable {
+        public typealias RawValue = Int
+
+        case all = -1
+        case debug = 1 // "🟢"
+        case info = 2 // "⚪"
+        case warning = 3 // "🟡"
+        case error = 4 // "🔴"
+        case off = 999
+
+        public static func < (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue < rhs.rawValue
+        }
+
+        public static func <= (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue >= rhs.rawValue
+        }
+
+        public static func > (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue > rhs.rawValue
+        }
+
+        public static func == (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue == rhs.rawValue
+        }
+
+        public var name: String {
+            switch self {
+                case .all: return "All"
+                case .debug: return "Debug"
+                case .info: return "Info"
+                case .warning: return "Warning"
+                case .error: return "Error"
+                case .off: return "Off"
+            }
+        }
+
+        public static var alls: [Level] = [.all, .debug, .info, .warning, .error, .off]
+    }
+
     fileprivate let dateFormatter = DateFormatter()
     fileprivate let dateShortFormatter = DateFormatter()
 
@@ -95,7 +101,7 @@ public class Loger {
     /// 是否输出到控制台
     public var toConsole = false
 
-    public var logLevel: LogerLevel = .all
+    public var logLevel: Level = .all
 
     fileprivate var _logerName: String?
     public var logerName: String {
@@ -125,7 +131,7 @@ extension Loger {
     /// 通过日志等级获取当前日志文件的路径
     /// - Parameter level: 日志等级
     /// - Returns: 文件路径
-    public func getCurrentLogFilePath(_ level: LogerLevel) -> String {
+    public func getCurrentLogFilePath(_ level: Level) -> String {
         let fileName = selfLoger.returnFileName(level)
         let logFilePath = self.getLogDirectory() + fileName
         if !FileManager.default.fileExists(atPath: logFilePath) {
@@ -183,6 +189,11 @@ extension Loger {
         return self.getLogFilesPath().isEmpty
     }
 
+    /// 清理所有日志文件
+    public static func cleanAll() {
+        do { try FileManager.default.removeItem(atPath: self.getLogDirectory()) } catch {}
+    }
+
     fileprivate func dvt_printToConsole(_ string: String) {
         if #available(iOS 14.0, macOS 11.0,*) {
             if let bundleIdentifier = Bundle.main.bundleIdentifier {
@@ -194,7 +205,7 @@ extension Loger {
         }
     }
 
-    fileprivate func printToFile(_ level: LogerLevel, log string: String) {
+    fileprivate func printToFile(_ level: Level, log string: String) {
         if self.logLevel > level {
             return
         }
@@ -211,7 +222,7 @@ extension Loger {
         }
     }
 
-    fileprivate func returnFileName(_ level: LogerLevel) -> String {
+    fileprivate func returnFileName(_ level: Level) -> String {
         var fileNameString = ""
         switch level {
             case .info:
@@ -291,7 +302,7 @@ extension Loger {
     ///   - format: 要打印的数据的结构
     ///   - args: 要打印的数据数组
     /// - Returns: 打印的内容
-    fileprivate func log(_ level: LogerLevel,
+    fileprivate func log(_ level: Level,
                          function: String,
                          file: String,
                          line: Int,
