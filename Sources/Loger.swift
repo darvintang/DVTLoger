@@ -9,7 +9,7 @@
 
  MIT License
 
- Copyright (c) 2021 darvin http://blog.tcoding.cn
+ Copyright (c) 2022 darvin http://blog.tcoding.cn
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -35,41 +35,47 @@ import Foundation
 import os
 import Zip
 
-public enum LogerLevel: Int {
-    public typealias RawValue = Int
-
-    case all = -1
-    case debug = 1 // "🟢"
-    case info = 2 // "⚪"
-    case warning = 3 // "🟡"
-    case error = 4 // "🔴"
-    case off = 999
-}
-
-extension LogerLevel: Comparable {
-    public static func < (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue < rhs.rawValue
-    }
-
-    public static func <= (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue <= rhs.rawValue
-    }
-
-    public static func >= (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue >= rhs.rawValue
-    }
-
-    public static func > (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue > rhs.rawValue
-    }
-
-    public static func == (lhs: LogerLevel, rhs: LogerLevel) -> Bool {
-        return lhs.rawValue == rhs.rawValue
-    }
-}
-
-/// 请在 "Swift Compiler - Custom Flags" 选项查找 "Other Swift Flags" 然后在DEBUG配置那里添加"-D DEBUG".
 public class Loger {
+    public enum Level: Int, Comparable {
+        public typealias RawValue = Int
+
+        case all = -1
+        case debug = 1 // "🟢"
+        case info = 2 // "⚪"
+        case warning = 3 // "🟡"
+        case error = 4 // "🔴"
+        case off = 999
+
+        public static func < (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue < rhs.rawValue
+        }
+
+        public static func <= (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue >= rhs.rawValue
+        }
+
+        public static func > (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue > rhs.rawValue
+        }
+
+        public static func == (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue == rhs.rawValue
+        }
+
+        public var name: String {
+            switch self {
+                case .all: return "All"
+                case .debug: return "Debug"
+                case .info: return "Info"
+                case .warning: return "Warning"
+                case .error: return "Error"
+                case .off: return "Off"
+            }
+        }
+
+        public static var alls: [Level] = [.all, .debug, .info, .warning, .error, .off]
+    }
+
     fileprivate let dateFormatter = DateFormatter()
     fileprivate let dateShortFormatter = DateFormatter()
 
@@ -95,7 +101,10 @@ public class Loger {
     /// 是否输出到控制台
     public var toConsole = false
 
-    public var logLevel: LogerLevel = .all
+    public var logLevel: Level = .all
+
+    /// 写入文件的日志等级
+    public var toFileLevel: Level = .warning
 
     fileprivate var _logerName: String?
     public var logerName: String {
@@ -125,7 +134,7 @@ extension Loger {
     /// 通过日志等级获取当前日志文件的路径
     /// - Parameter level: 日志等级
     /// - Returns: 文件路径
-    public func getCurrentLogFilePath(_ level: LogerLevel) -> String {
+    public func getCurrentLogFilePath(_ level: Level) -> String {
         let fileName = selfLoger.returnFileName(level)
         let logFilePath = self.getLogDirectory() + fileName
         if !FileManager.default.fileExists(atPath: logFilePath) {
@@ -183,6 +192,11 @@ extension Loger {
         return self.getLogFilesPath().isEmpty
     }
 
+    /// 清理所有日志文件
+    public static func cleanAll() {
+        do { try FileManager.default.removeItem(atPath: self.getLogDirectory()) } catch {}
+    }
+
     fileprivate func dvt_printToConsole(_ string: String) {
         if #available(iOS 14.0, macOS 11.0,*) {
             if let bundleIdentifier = Bundle.main.bundleIdentifier {
@@ -194,24 +208,24 @@ extension Loger {
         }
     }
 
-    fileprivate func printToFile(_ level: LogerLevel, log string: String) {
-        if self.logLevel > level {
+    fileprivate func printToFile(_ level: Level, log string: String) {
+        if self.toFileLevel > level {
             return
         }
         let logFilePath = self.getCurrentLogFilePath(level)
         if FileManager.default.fileExists(atPath: logFilePath) {
             let writeHandler = FileHandle(forWritingAtPath: logFilePath)
             writeHandler?.seekToEndOfFile()
-            if let data = ("\n" + string).data(using: String.Encoding.utf8) {
+            if let data = ("\n" + string).data(using: .utf8) {
                 writeHandler?.write(data)
             }
             writeHandler?.closeFile()
         } else {
-            FileManager.default.createFile(atPath: logFilePath, contents: string.data(using: String.Encoding.utf8), attributes: nil)
+            FileManager.default.createFile(atPath: logFilePath, contents: string.data(using: .utf8), attributes: nil)
         }
     }
 
-    fileprivate func returnFileName(_ level: LogerLevel) -> String {
+    fileprivate func returnFileName(_ level: Level) -> String {
         var fileNameString = ""
         switch level {
             case .info:
@@ -247,56 +261,18 @@ extension Loger {
 }
 
 extension Loger {
-    fileprivate func loger(format: String, _ args: [Any?]) -> String {
-        guard let ranges = try? NSRegularExpression(pattern: "%*%", options: []) else {
-            return ""
-        }
-
-        let matches = ranges.matches(in: format, options: [], range: NSRange(format.startIndex..., in: format))
-
-        var value = ""
-        var index = 0
-        if args.isEmpty {
-            return format
-        }
-
-        for i in 0 ..< matches.count {
-            let len = (i < matches.count - 1 ? matches[i + 1].range.location : format.count) - matches[i].range.location
-            let range = Range(NSMakeRange(matches[i].range.location, len), in: format)
-            if let tempRange = range {
-                var tempFormat = "\(format[tempRange])"
-                if !tempFormat.hasPrefix("% ") && index < args.count {
-                    let arg = args[index]
-                    index = index + 1
-                    if arg != nil, let cVarArg = arg as? CVarArg {
-                        tempFormat = String(format: tempFormat, cVarArg)
-                    } else {
-                        switch arg {
-                            case let .some(tempArg):
-                                tempFormat = String(format: tempFormat, "\(tempArg)")
-                            case .none:
-                                tempFormat = String(format: tempFormat, "nil")
-                        }
-                    }
-                }
-                value = value + tempFormat
-            }
-        }
-        return value
-    }
-
     /// 打印日志
     /// - Parameters:
     ///   - level: 日志等级
     ///   - format: 要打印的数据的结构
     ///   - args: 要打印的数据数组
     /// - Returns: 打印的内容
-    fileprivate func log(_ level: LogerLevel,
-                         function: String,
-                         file: String,
-                         line: Int,
-                         value: [Any],
-                         separator: String) -> String {
+    public func log(_ level: Level,
+                    function: String = #function,
+                    file: String = #file,
+                    line: Int = #line,
+                    values: Any...,
+                    separator: String = " ") -> String {
         if self.logLevel > level {
             return ""
         }
@@ -335,7 +311,7 @@ extension Loger {
         let infoString = "\(levelString) \(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
 
         var logString = ""
-        value.forEach { tempValue in
+        values.forEach { tempValue in
             var tempLog = ""
             Swift.print(tempValue, terminator: separator, to: &tempLog)
             logString += tempLog
@@ -359,33 +335,33 @@ extension Loger {
     @discardableResult public func info(function: String = #function,
                                         file: String = #file,
                                         line: Int = #line,
-                                        _ value: Any...,
+                                        _ values: Any...,
                                         separator: String = " ") -> String {
-        return self.log(.info, function: function, file: file, line: line, value: value, separator: separator)
+        return self.log(.info, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public func debug(function: String = #function,
                                          file: String = #file,
                                          line: Int = #line,
-                                         _ value: Any...,
+                                         _ values: Any...,
                                          separator: String = " ") -> String {
-        return self.log(.debug, function: function, file: file, line: line, value: value, separator: separator)
+        return self.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public func warning(function: String = #function,
                                            file: String = #file,
                                            line: Int = #line,
-                                           _ value: Any...,
+                                           _ values: Any...,
                                            separator: String = " ") -> String {
-        return self.log(.warning, function: function, file: file, line: line, value: value, separator: separator)
+        return self.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public func error(function: String = #function,
                                          file: String = #file,
                                          line: Int = #line,
-                                         _ value: Any...,
+                                         _ values: Any...,
                                          separator: String = " ") -> String {
-        return self.log(.error, function: function, file: file, line: line, value: value, separator: separator)
+        return self.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 }
 
@@ -396,33 +372,33 @@ extension Loger {
     @discardableResult public static func info(function: String = #function,
                                                file: String = #file,
                                                line: Int = #line,
-                                               _ value: Any...,
+                                               _ values: Any...,
                                                separator: String = " ") -> String {
-        return selfLoger.log(.info, function: function, file: file, line: line, value: value, separator: separator)
+        return selfLoger.log(.info, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public static func debug(function: String = #function,
                                                 file: String = #file,
                                                 line: Int = #line,
-                                                _ value: Any...,
+                                                _ values: Any...,
                                                 separator: String = " ") -> String {
-        return selfLoger.log(.debug, function: function, file: file, line: line, value: value, separator: separator)
+        return selfLoger.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public static func warning(function: String = #function,
                                                   file: String = #file,
                                                   line: Int = #line,
-                                                  _ value: Any...,
+                                                  _ values: Any...,
                                                   separator: String = " ") -> String {
-        return selfLoger.log(.warning, function: function, file: file, line: line, value: value, separator: separator)
+        return selfLoger.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult public static func error(function: String = #function,
                                                 file: String = #file,
                                                 line: Int = #line,
-                                                _ value: Any...,
+                                                _ values: Any...,
                                                 separator: String = " ") -> String {
-        return selfLoger.log(.error, function: function, file: file, line: line, value: value, separator: separator)
+        return selfLoger.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 }
 
@@ -439,7 +415,7 @@ extension Loger {
             }
         }
 
-        public func shareLoger(form vc: UIViewController?, completion: ((_ progress: Double, _ path: String) -> Void)? = nil) {
+        public func shareLoger(from vc: UIViewController?, completion: ((_ progress: Double, _ path: String) -> Void)? = nil) {
             self.getLogerFileZip { progress, path in
                 completion?(progress, path)
                 if progress == 1 {
@@ -464,7 +440,7 @@ extension Loger {
             }
         }
 
-        public static func shareLoger(form vc: UIViewController?, completion: ((_ error: Error?, _ path: String?) -> Void)? = nil) {
+        public static func shareLoger(from vc: UIViewController?, completion: ((_ error: Error?, _ path: String?) -> Void)? = nil) {
             self.getLogerFileZip { error, path in
                 completion?(error, path)
                 if let tpath = path {

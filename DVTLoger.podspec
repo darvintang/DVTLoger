@@ -1,15 +1,16 @@
 Pod::Spec.new do |s|
   s.name             = 'DVTLoger'
-  s.version          = '1.2'
+  s.version          = '2.0.2'
   s.summary          = 'DVTLoger'
 
   s.description      = <<-DESC
-  TODO: 打印日志的框架
-                       DESC
+  TODO:
+    打印日志的框架，可以输出到控制台，导出日志文件
+  DESC
 
   s.homepage         = 'https://github.com/darvintang/DVTLoger'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
-  s.author           = { 'xt-input' => 'input@tcoding.cn' }
+  s.author           = { 'darvin' => 'darvin@tcoding.cn' }
   s.source           = { :git => 'https://github.com/darvintang/DVTLoger.git', :tag => s.version.to_s }
 
   s.ios.deployment_target = '12.0'
@@ -19,6 +20,6 @@ Pod::Spec.new do |s|
 
   s.swift_version = '5'
   s.requires_arc  = true
-  s.dependency 'Zip', '>= 2.1.1'
+  s.dependency 'Zip', '~> 2.1.2'
 
 end
