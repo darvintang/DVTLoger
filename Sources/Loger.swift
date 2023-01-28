@@ -79,8 +79,38 @@ public class Loger {
     fileprivate let dateFormatter = DateFormatter()
     fileprivate let dateShortFormatter = DateFormatter()
 
-    /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day) 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M，通过这类的组合可以构成一个日志文件保存一天、一周、一个月、一年等方式。建议使用"Y-WY" or "Y-M"，一定要用"-"隔开
-    public var fileFormatter = "Y-WY"
+    /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day)
+    /// 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M
+    /// 通过这类的组合可以构成一个日志文件保存一天、一周、一个月、一年等方式。建议使用"Y-WY" or "Y-M"，一定要用"-"隔开
+    public var fileFormatter = "Y-WY" {
+        willSet {
+            var list = newValue.components(separatedBy: "-")
+            list.removeAll(where: { ["Y", "WY", "M", "D"].contains($0) })
+            if !list.isEmpty {
+                self.fileFormatter = "Y-WY"
+                assertionFailure("不支持的日志文件格式：\(newValue)")
+            }
+        }
+    }
+
+    /// 同等级日志文件数量，避免用户长时间没有打开，然后打开后日志文件就立马被清理了
+    public var maxFilesCount: Int = 2 {
+        didSet {
+            if oldValue < self.maxFilesCount {
+                self.autoCleanLogFiles()
+            }
+        }
+    }
+
+    /// 日志超时时间(秒)，当日志文件创建的时间超过这个时间并且文件数量也大于设定值就会删除，配合自动清理使用
+    public var logExpire: TimeInterval = 3600 * 24 * 30 {
+        didSet {
+            if oldValue < self.logExpire {
+                self.autoCleanLogFiles()
+            }
+        }
+    }
+
     /// 是否打印时间戳
     public var isShowLongTime = true
 
@@ -113,7 +143,7 @@ public class Loger {
 
     fileprivate var _logDirectory: String?
     fileprivate var logDirectory: String {
-        (self._logDirectory ?? self.logerName) + "/"
+        self._logDirectory ?? self.logerName
     }
 
     public convenience init(_ logDirectory: String = "", logerName: String) {
@@ -136,7 +166,7 @@ extension Loger {
     /// - Returns: 文件路径
     public func getCurrentLogFilePath(_ level: Level) -> String {
         let fileName = selfLoger.returnFileName(level)
-        let logFilePath = self.getLogDirectory() + fileName
+        let logFilePath = self.getLogDirectory() + "/" + fileName
         if !FileManager.default.fileExists(atPath: logFilePath) {
             FileManager.default.createFile(atPath: logFilePath, contents: nil, attributes: nil)
         }
@@ -192,6 +222,29 @@ extension Loger {
         return self.getLogFilesPath().isEmpty
     }
 
+    /// 在设置日志过期时间之后调用，如果需要清理请手动调用
+    public func autoCleanLogFiles() {
+        let filesList = self.getLogFilesPath()
+        self.cleanLogFiles(.debug, filesList: filesList)
+        self.cleanLogFiles(.info, filesList: filesList)
+        self.cleanLogFiles(.warning, filesList: filesList)
+        self.cleanLogFiles(.error, filesList: filesList)
+    }
+
+    fileprivate func cleanLogFiles(_ level: Level, filesList: [String]) {
+        let name = level.name.lowercased()
+        let files = filesList.filter({ $0.contains(name) })
+        if files.count > self.maxFilesCount {
+            files.forEach { path in
+                if let attributes = try? FileManager.default.attributesOfItem(atPath: path), let creationDate = attributes[.creationDate] as? Date {
+                    if creationDate.timeIntervalSinceNow * -1 > self.logExpire {
+                        try? FileManager.default.removeItem(atPath: path)
+                    }
+                }
+            }
+        }
+    }
+
     /// 清理所有日志文件
     public static func cleanAll() {
         do { try FileManager.default.removeItem(atPath: self.getLogDirectory()) } catch {}
@@ -241,19 +294,17 @@ extension Loger {
         }
         let dateComponents = Calendar.current.dateComponents(Set<Calendar.Component>.init(arrayLiteral: .year, .month, .day, .weekOfYear), from: Date())
         let fileFormatters = self.fileFormatter.components(separatedBy: "-")
-        fileFormatters.forEach { string in
-            switch string {
-                case "D":
-                    fileNameString += "-\(dateComponents.day!)"
-                case "WY":
-                    fileNameString += "-\(dateComponents.weekOfYear!)"
-                case "M":
-                    fileNameString += "-\(dateComponents.month!)"
-                case "Y":
-                    fileNameString += "-\(dateComponents.year!)"
-                default:
-                    break
-            }
+        if fileFormatters.contains("Y") {
+            fileNameString += "-\(dateComponents.year!)"
+        }
+        if fileFormatters.contains("M") {
+            fileNameString += "-\(dateComponents.month!)"
+        }
+        if fileFormatters.contains("WY") {
+            fileNameString += "-\(dateComponents.weekOfYear!)"
+        }
+        if fileFormatters.contains("D") {
+            fileNameString += "-\(dateComponents.day!)"
         }
         fileNameString += ".log"
         return fileNameString

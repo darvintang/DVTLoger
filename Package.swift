@@ -7,8 +7,8 @@ let package = Package(
     name: "DVTLoger",
 
     platforms: [
-        .macOS(.v10_12),
-        .iOS(.v10),
+        .macOS(.v10_14),
+        .iOS(.v12)
     ],
 
     products: [
@@ -19,7 +19,7 @@ let package = Package(
     ],
     
     dependencies: [
-        .package(url: "https://github.com/marmelroy/Zip.git", .upToNextMajor(from: "2.1.1")),
+        .package(url: "https://github.com/marmelroy/Zip.git", .upToNextMinor(from: "2.1.2"))
     ],
 
     targets: [
@@ -31,8 +31,6 @@ let package = Package(
         .testTarget(
             name: "DVTLogerTests",
             dependencies: ["DVTLoger"]
-        ),
-    ],
-    
-    swiftLanguageVersions: [.v5]
+        )
+    ]
 )
