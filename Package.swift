@@ -7,8 +7,8 @@ let package = Package(
     name: "DVTLoger",
 
     platforms: [
-        .macOS(.v10_14),
-        .iOS(.v12)
+        .macOS(.v11),
+        .iOS(.v13)
     ],
 
     products: [
