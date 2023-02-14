@@ -31,14 +31,27 @@
 
  */
 
-import Foundation
 import os
 import Zip
+import Foundation
 
 public class Loger {
-    public enum Level: Int, Comparable {
-        public typealias RawValue = Int
+    // MARK: Lifecycle
+    public convenience init(_ logDirectory: String = "", logerName: String) {
+        self.init(logerName)
+        self._logDirectory = logDirectory
+    }
 
+    public required init(_ name: String? = nil) {
+        self.dateFormatter.locale = Locale.current
+        self.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        self.dateShortFormatter.locale = Locale.current
+        self.dateShortFormatter.dateFormat = "HH:mm:ss.SSS"
+        self._logerName = name
+    }
+
+    // MARK: Public
+    public enum Level: Int, Comparable {
         case all = -1
         case debug = 1 // "🟢"
         case info = 2 // "⚪"
@@ -46,21 +59,10 @@ public class Loger {
         case error = 4 // "🔴"
         case off = 999
 
-        public static func < (lhs: Level, rhs: Level) -> Bool {
-            return lhs.rawValue < rhs.rawValue
-        }
+        // MARK: Public
+        public typealias RawValue = Int
 
-        public static func <= (lhs: Level, rhs: Level) -> Bool {
-            return lhs.rawValue >= rhs.rawValue
-        }
-
-        public static func > (lhs: Level, rhs: Level) -> Bool {
-            return lhs.rawValue > rhs.rawValue
-        }
-
-        public static func == (lhs: Level, rhs: Level) -> Bool {
-            return lhs.rawValue == rhs.rawValue
-        }
+        public static var alls: [Level] = [.all, .debug, .info, .warning, .error, .off]
 
         public var name: String {
             switch self {
@@ -73,41 +75,8 @@ public class Loger {
             }
         }
 
-        public static var alls: [Level] = [.all, .debug, .info, .warning, .error, .off]
-    }
-
-    fileprivate let dateFormatter = DateFormatter()
-    fileprivate let dateShortFormatter = DateFormatter()
-
-    /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day)
-    /// 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M
-    /// 通过这类的组合可以构成一个日志文件保存一天、一周、一个月、一年等方式。建议使用"Y-WY" or "Y-M"，一定要用"-"隔开
-    public var fileFormatter = "Y-WY" {
-        willSet {
-            var list = newValue.components(separatedBy: "-")
-            list.removeAll(where: { ["Y", "WY", "M", "D"].contains($0) })
-            if !list.isEmpty {
-                self.fileFormatter = "Y-WY"
-                assertionFailure("不支持的日志文件格式：\(newValue)")
-            }
-        }
-    }
-
-    /// 同等级日志文件数量，避免用户长时间没有打开，然后打开后日志文件就立马被清理了
-    public var maxFilesCount: Int = 2 {
-        didSet {
-            if oldValue < self.maxFilesCount {
-                self.autoCleanLogFiles()
-            }
-        }
-    }
-
-    /// 日志超时时间(秒)，当日志文件创建的时间超过这个时间并且文件数量也大于设定值就会删除，配合自动清理使用
-    public var logExpire: TimeInterval = 3600 * 24 * 30 {
-        didSet {
-            if oldValue < self.logExpire {
-                self.autoCleanLogFiles()
-            }
+        public static func < (lhs: Level, rhs: Level) -> Bool {
+            return lhs.rawValue < rhs.rawValue
         }
     }
 
@@ -136,35 +105,85 @@ public class Loger {
     /// 写入文件的日志等级
     public var toFileLevel: Level = .warning
 
-    fileprivate var _logerName: String?
+    /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day)
+    /// 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M
+    /// 通过这类的组合可以构成一个日志文件保存一天、一周、一个月、一年等方式。建议使用"Y-WY" or "Y-M"，一定要用"-"隔开
+    public var fileFormatter = "Y-WY" {
+        willSet {
+            var list = newValue.components(separatedBy: "-")
+            list.removeAll(where: { ["Y", "WY", "M", "D"].contains($0) })
+            if !list.isEmpty {
+                self.fileFormatter = "Y-WY"
+                assertionFailure("不支持的日志文件格式：\(newValue)")
+            }
+        }
+    }
+
+    /// 同等级日志文件数量，避免用户长时间没有打开，然后打开后日志文件就立马被清理了
+    public var maxFilesCount = 2 {
+        didSet {
+            if oldValue < self.maxFilesCount {
+                self.autoCleanLogFiles()
+            }
+        }
+    }
+
+    /// 日志超时时间(秒)，当日志文件创建的时间超过这个时间并且文件数量也大于设定值就会删除，配合自动清理使用
+    public var logExpire: TimeInterval = 3600 * 24 * 30 {
+        didSet {
+            if oldValue < self.logExpire {
+                self.autoCleanLogFiles()
+            }
+        }
+    }
+
     public var logerName: String {
         self._logerName ?? Bundle.main.bundleIdentifier?.components(separatedBy: ".").last?.capitalized ?? "Default"
     }
 
+    // MARK: Fileprivate
+    fileprivate let dateFormatter = DateFormatter()
+    fileprivate let dateShortFormatter = DateFormatter()
+
+    fileprivate var _logerName: String?
     fileprivate var _logDirectory: String?
+
     fileprivate var logDirectory: String {
         self._logDirectory ?? self.logerName
     }
-
-    public convenience init(_ logDirectory: String = "", logerName: String) {
-        self.init(logerName)
-        self._logDirectory = logDirectory
-    }
-
-    public required init(_ name: String? = nil) {
-        self.dateFormatter.locale = Locale.current
-        self.dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-        self.dateShortFormatter.locale = Locale.current
-        self.dateShortFormatter.dateFormat = "HH:mm:ss.SSS"
-        self._logerName = name
-    }
 }
 
-extension Loger {
+public extension Loger {
+    // MARK: Internal
+    /// 获取日志文件夹的路径，没有该文件夹就创建
+    /// - Returns: 日志文件夹的路径
+    static func getLogDirectory() -> String {
+        let logDirectoryPath = NSHomeDirectory() + "/Documents/DVTLoger"
+        if !FileManager.default.fileExists(atPath: logDirectoryPath) {
+            try? FileManager.default.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true, attributes: nil)
+        }
+        return logDirectoryPath
+    }
+
+    /// 获取所有日志文件的路径
+    /// - Returns: 所有日志文件的路径
+    static func getLogFilesPath() -> [String] {
+        var filesPath = [String]()
+        do {
+            filesPath = try FileManager.default.contentsOfDirectory(atPath: self.getLogDirectory())
+        } catch { }
+        return filesPath.compactMap { self.getLogDirectory() + "/\($0)" }
+    }
+
+    /// 清理所有日志文件
+    static func cleanAll() {
+        do { try FileManager.default.removeItem(atPath: self.getLogDirectory()) } catch { }
+    }
+
     /// 通过日志等级获取当前日志文件的路径
     /// - Parameter level: 日志等级
     /// - Returns: 文件路径
-    public func getCurrentLogFilePath(_ level: Level) -> String {
+    func getCurrentLogFilePath(_ level: Level) -> String {
         let fileName = selfLoger.returnFileName(level)
         let logFilePath = self.getLogDirectory() + "/" + fileName
         if !FileManager.default.fileExists(atPath: logFilePath) {
@@ -175,7 +194,7 @@ extension Loger {
 
     /// 获取日志文件夹的路径，没有该文件夹就创建
     /// - Returns: 日志文件夹的路径
-    public func getLogDirectory() -> String {
+    func getLogDirectory() -> String {
         let logDirectoryPath = Self.getLogDirectory() + "/" + self.logDirectory
         if !FileManager.default.fileExists(atPath: logDirectoryPath) {
             try? FileManager.default.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true, attributes: nil)
@@ -185,45 +204,25 @@ extension Loger {
 
     /// 获取所有日志文件的路径
     /// - Returns: 所有日志文件的路径
-    public func getLogFilesPath() -> [String] {
+    func getLogFilesPath() -> [String] {
         var filesPath = [String]()
         do {
             filesPath = try FileManager.default.contentsOfDirectory(atPath: self.getLogDirectory())
-        } catch {}
-        return filesPath.compactMap({ self.getLogDirectory() + "/\($0)" })
-    }
-
-    /// 获取日志文件夹的路径，没有该文件夹就创建
-    /// - Returns: 日志文件夹的路径
-    public static func getLogDirectory() -> String {
-        let logDirectoryPath = NSHomeDirectory() + "/Documents/DVTLoger"
-        if !FileManager.default.fileExists(atPath: logDirectoryPath) {
-            try? FileManager.default.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true, attributes: nil)
-        }
-        return logDirectoryPath
-    }
-
-    /// 获取所有日志文件的路径
-    /// - Returns: 所有日志文件的路径
-    public static func getLogFilesPath() -> [String] {
-        var filesPath = [String]()
-        do {
-            filesPath = try FileManager.default.contentsOfDirectory(atPath: self.getLogDirectory())
-        } catch {}
-        return filesPath.compactMap({ self.getLogDirectory() + "/\($0)" })
+        } catch { }
+        return filesPath.compactMap { self.getLogDirectory() + "/\($0)" }
     }
 
     /// 清理日志文件
     /// - Returns: 操作结果
-    @discardableResult public func cleanLogFiles() -> Bool {
+    @discardableResult func cleanLogFiles() -> Bool {
         self.getLogFilesPath().forEach { path in
-            do { try FileManager.default.removeItem(atPath: self.getLogDirectory() + "/" + path) } catch {}
+            do { try FileManager.default.removeItem(atPath: self.getLogDirectory() + "/" + path) } catch { }
         }
         return self.getLogFilesPath().isEmpty
     }
 
     /// 在设置日志过期时间之后调用，如果需要清理请手动调用
-    public func autoCleanLogFiles() {
+    func autoCleanLogFiles() {
         let filesList = self.getLogFilesPath()
         self.cleanLogFiles(.debug, filesList: filesList)
         self.cleanLogFiles(.info, filesList: filesList)
@@ -231,9 +230,10 @@ extension Loger {
         self.cleanLogFiles(.error, filesList: filesList)
     }
 
+    // MARK: Fileprivate
     fileprivate func cleanLogFiles(_ level: Level, filesList: [String]) {
         let name = level.name.lowercased()
-        let files = filesList.filter({ $0.contains(name) })
+        let files = filesList.filter { $0.contains(name) }
         if files.count > self.maxFilesCount {
             files.forEach { path in
                 if let attributes = try? FileManager.default.attributesOfItem(atPath: path), let creationDate = attributes[.creationDate] as? Date {
@@ -243,11 +243,6 @@ extension Loger {
                 }
             }
         }
-    }
-
-    /// 清理所有日志文件
-    public static func cleanAll() {
-        do { try FileManager.default.removeItem(atPath: self.getLogDirectory()) } catch {}
     }
 
     fileprivate func dvt_printToConsole(_ string: String) {
@@ -311,19 +306,19 @@ extension Loger {
     }
 }
 
-extension Loger {
+public extension Loger {
     /// 打印日志
     /// - Parameters:
     ///   - level: 日志等级
     ///   - format: 要打印的数据的结构
     ///   - args: 要打印的数据数组
     /// - Returns: 打印的内容
-    public func log(_ level: Level,
-                    function: String = #function,
-                    file: String = #file,
-                    line: Int = #line,
-                    values: Any...,
-                    separator: String = " ") -> String {
+    func log(_ level: Level,
+             function: String = #function,
+             file: String = #file,
+             line: Int = #line,
+             values: Any...,
+             separator: String = " ") -> String {
         if self.logLevel > level {
             return ""
         }
@@ -357,8 +352,8 @@ extension Loger {
         }
         let functionString = self.isShowFunctionName ? function : ""
 
-        let threadId = String(unsafeBitCast(Thread.current, to: Int.self), radix: 16, uppercase: false)
-        let isMain = self.isShowThread ? Thread.current.isMainThread ? "[Main]" : "[Global]<0x\(threadId)>" : ""
+        let threadID = String(unsafeBitCast(Thread.current, to: Int.self), radix: 16, uppercase: false)
+        let isMain = self.isShowThread ? Thread.current.isMainThread ? "[Main]" : "[Global]<0x\(threadID)>" : ""
         let infoString = "\(levelString) \(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
 
         var logString = ""
@@ -382,73 +377,73 @@ extension Loger {
     }
 }
 
-extension Loger {
-    @discardableResult public func info(function: String = #function,
-                                        file: String = #file,
-                                        line: Int = #line,
-                                        _ values: Any...,
-                                        separator: String = " ") -> String {
+public extension Loger {
+    @discardableResult func info(function: String = #function,
+                                 file: String = #file,
+                                 line: Int = #line,
+                                 _ values: Any...,
+                                 separator: String = " ") -> String {
         return self.log(.info, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public func debug(function: String = #function,
-                                         file: String = #file,
-                                         line: Int = #line,
-                                         _ values: Any...,
-                                         separator: String = " ") -> String {
+    @discardableResult func debug(function: String = #function,
+                                  file: String = #file,
+                                  line: Int = #line,
+                                  _ values: Any...,
+                                  separator: String = " ") -> String {
         return self.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public func warning(function: String = #function,
-                                           file: String = #file,
-                                           line: Int = #line,
-                                           _ values: Any...,
-                                           separator: String = " ") -> String {
+    @discardableResult func warning(function: String = #function,
+                                    file: String = #file,
+                                    line: Int = #line,
+                                    _ values: Any...,
+                                    separator: String = " ") -> String {
         return self.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public func error(function: String = #function,
-                                         file: String = #file,
-                                         line: Int = #line,
-                                         _ values: Any...,
-                                         separator: String = " ") -> String {
+    @discardableResult func error(function: String = #function,
+                                  file: String = #file,
+                                  line: Int = #line,
+                                  _ values: Any...,
+                                  separator: String = " ") -> String {
         return self.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 }
 
-fileprivate let selfLoger = Loger()
-extension Loger {
-    public static var `default`: Loger = selfLoger
+private let selfLoger = Loger()
+public extension Loger {
+    static var `default`: Loger = selfLoger
 
-    @discardableResult public static func info(function: String = #function,
-                                               file: String = #file,
-                                               line: Int = #line,
-                                               _ values: Any...,
-                                               separator: String = " ") -> String {
+    @discardableResult static func info(function: String = #function,
+                                        file: String = #file,
+                                        line: Int = #line,
+                                        _ values: Any...,
+                                        separator: String = " ") -> String {
         return selfLoger.log(.info, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public static func debug(function: String = #function,
-                                                file: String = #file,
-                                                line: Int = #line,
-                                                _ values: Any...,
-                                                separator: String = " ") -> String {
+    @discardableResult static func debug(function: String = #function,
+                                         file: String = #file,
+                                         line: Int = #line,
+                                         _ values: Any...,
+                                         separator: String = " ") -> String {
         return selfLoger.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public static func warning(function: String = #function,
-                                                  file: String = #file,
-                                                  line: Int = #line,
-                                                  _ values: Any...,
-                                                  separator: String = " ") -> String {
+    @discardableResult static func warning(function: String = #function,
+                                           file: String = #file,
+                                           line: Int = #line,
+                                           _ values: Any...,
+                                           separator: String = " ") -> String {
         return selfLoger.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
     }
 
-    @discardableResult public static func error(function: String = #function,
-                                                file: String = #file,
-                                                line: Int = #line,
-                                                _ values: Any...,
-                                                separator: String = " ") -> String {
+    @discardableResult static func error(function: String = #function,
+                                         file: String = #file,
+                                         line: Int = #line,
+                                         _ values: Any...,
+                                         separator: String = " ") -> String {
         return selfLoger.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 }
@@ -456,27 +451,8 @@ extension Loger {
 #if canImport(UIKit)
     import UIKit
 
-    extension Loger {
-        public func getLogerFileZip(_ completion: @escaping (_ progress: Double, _ path: String) -> Void) {
-            let zipFilePath = self.getLogDirectory() + ".zip"
-            try? FileManager.default.removeItem(atPath: zipFilePath)
-            let paths = self.getLogFilesPath().compactMap { URL(fileURLWithPath: $0) }
-            try? Zip.zipFiles(paths: paths, zipFilePath: URL(fileURLWithPath: zipFilePath), password: nil) { progress in
-                completion(progress, zipFilePath)
-            }
-        }
-
-        public func shareLoger(from vc: UIViewController?, completion: ((_ progress: Double, _ path: String) -> Void)? = nil) {
-            self.getLogerFileZip { progress, path in
-                completion?(progress, path)
-                if progress == 1 {
-                    let actVC = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
-                    vc?.present(actVC, animated: true, completion: nil)
-                }
-            }
-        }
-
-        public static func getLogerFileZip(_ completion: @escaping (_ error: Error?, _ path: String?) -> Void) {
+    public extension Loger {
+        static func getLogerFileZip(_ completion: @escaping (_ error: Error?, _ path: String?) -> Void) {
             let zipFilePath = self.getLogDirectory() + ".zip"
             try? FileManager.default.removeItem(atPath: zipFilePath)
             let paths = self.getLogFilesPath().compactMap { URL(fileURLWithPath: $0) }
@@ -486,16 +462,35 @@ extension Loger {
                         completion(nil, zipFilePath)
                     }
                 }
-            } catch let error {
+            } catch {
                 completion(error, nil)
             }
         }
 
-        public static func shareLoger(from vc: UIViewController?, completion: ((_ error: Error?, _ path: String?) -> Void)? = nil) {
+        static func shareLoger(from vc: UIViewController?, completion: ((_ error: Error?, _ path: String?) -> Void)? = nil) {
             self.getLogerFileZip { error, path in
                 completion?(error, path)
                 if let tpath = path {
                     let actVC = UIActivityViewController(activityItems: [URL(fileURLWithPath: tpath)], applicationActivities: nil)
+                    vc?.present(actVC, animated: true, completion: nil)
+                }
+            }
+        }
+
+        func getLogerFileZip(_ completion: @escaping (_ progress: Double, _ path: String) -> Void) {
+            let zipFilePath = self.getLogDirectory() + ".zip"
+            try? FileManager.default.removeItem(atPath: zipFilePath)
+            let paths = self.getLogFilesPath().compactMap { URL(fileURLWithPath: $0) }
+            try? Zip.zipFiles(paths: paths, zipFilePath: URL(fileURLWithPath: zipFilePath), password: nil) { progress in
+                completion(progress, zipFilePath)
+            }
+        }
+
+        func shareLoger(from vc: UIViewController?, completion: ((_ progress: Double, _ path: String) -> Void)? = nil) {
+            self.getLogerFileZip { progress, path in
+                completion?(progress, path)
+                if progress == 1 {
+                    let actVC = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
                     vc?.present(actVC, animated: true, completion: nil)
                 }
             }
