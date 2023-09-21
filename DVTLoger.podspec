@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'DVTLoger'
-  s.version          = '2.0.0'
+  s.version          = '3.0.0'
   s.summary          = 'DVTLoger'
 
   s.description      = <<-DESC
@@ -13,13 +13,13 @@ Pod::Spec.new do |s|
   s.author           = { 'darvin' => 'darvin@tcoding.cn' }
   s.source           = { :git => 'https://github.com/darvintang/DVTLoger.git', :tag => s.version.to_s }
 
-  s.ios.deployment_target = '13'
-  s.osx.deployment_target = '11'
+  s.ios.deployment_target = '14'
+  s.osx.deployment_target = '12'
 
   s.source_files = 'Sources/*.swift'
 
   s.swift_version = '5'
   s.requires_arc  = true
-  s.dependency 'Zip', '~> 2.1.2'
+  s.dependency 'Zip', '2.1.2'
 
 end
