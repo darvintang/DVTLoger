@@ -52,26 +52,41 @@ public class Loger {
 
     // MARK: Public
     public enum Level: Int, Comparable {
+        @available(*, deprecated, renamed: "default", message: "该属性已经弃用")
         case all = -1
-        case debug = 1 // "🟢"
-        case info = 2 // "⚪"
-        case warning = 3 // "🟡"
-        case error = 4 // "🔴"
-        case off = 999
+        case `default` = 0 // "✫" `notice`
+        case info = 1 // "✯" info
+        case debug = 2 // "✬" debug
+        case error = 16 // "✮" error
+        case fault = 17 // "✭" fault
+
+        case off = 128
 
         // MARK: Public
         public typealias RawValue = Int
 
-        public static var alls: [Level] = [.all, .debug, .info, .warning, .error, .off]
+        public static var alls: [Level] = [.default, .info, .debug, .error, .fault, .off]
 
         public var name: String {
             switch self {
-                case .all: return "All"
-                case .debug: return "Debug"
+                case .default: return "Notice"
                 case .info: return "Info"
-                case .warning: return "Warning"
+                case .debug: return "Debug"
                 case .error: return "Error"
+                case .fault: return "Fault"
                 case .off: return "Off"
+                default: return ""
+            }
+        }
+
+        public var logo: String {
+            switch self {
+                case .default: return "✫"
+                case .info: return "✯"
+                case .debug: return "✬"
+                case .error: return "✮"
+                case .fault: return "✭"
+                default: return ""
             }
         }
 
@@ -97,13 +112,10 @@ public class Loger {
     /// 是否打印文件名
     public var isShowFileName = true
 
-    /// 是否输出到控制台
-    public var toConsole = false
-
-    public var logLevel: Level = .all
+    public var logLevel: Level = .default
 
     /// 写入文件的日志等级
-    public var toFileLevel: Level = .warning
+    public var toFileLevel: Level = .error
 
     /// 文件名字格式，支持Y(year)、WY(weekOfYear)、M(month)、D(day)
     /// 例如，以2018/3/21为例 "Y-WY"=>2018Y-12WY "Y-M-D"=>2018Y-3M-21D "Y-M"=>2018Y-3M
@@ -224,10 +236,11 @@ public extension Loger {
     /// 在设置日志过期时间之后调用，如果需要清理请手动调用
     func autoCleanLogFiles() {
         let filesList = self.getLogFilesPath()
+        self.cleanLogFiles(.default, filesList: filesList)
         self.cleanLogFiles(.debug, filesList: filesList)
         self.cleanLogFiles(.info, filesList: filesList)
-        self.cleanLogFiles(.warning, filesList: filesList)
         self.cleanLogFiles(.error, filesList: filesList)
+        self.cleanLogFiles(.fault, filesList: filesList)
     }
 
     // MARK: Fileprivate
@@ -245,14 +258,13 @@ public extension Loger {
         }
     }
 
-    fileprivate func dvt_printToConsole(_ string: String) {
+    fileprivate func dvt_printToConsole(_ string: String, level: Level) {
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "DVTLoger"
         if #available(iOS 14.0, macOS 11.0,*) {
-            if let bundleIdentifier = Bundle.main.bundleIdentifier {
-                let logger = Logger(subsystem: bundleIdentifier, category: "\(self.logerName)")
-                logger.log("\(string, privacy: .public)")
-            }
+            let logger = Logger(subsystem: bundleIdentifier, category: "\(self.logerName)")
+            logger.log(level: OSLogType(UInt8(level.rawValue)), "\((self.isShowLevel ? level.logo + " " : "") + string, privacy: .auto)")
         } else {
-            os_log("%{public}@: %{public}@", log: .default, type: .info, "\(self.logerName)", string)
+            os_log("%{public}@: %{public}@", log: .init(subsystem: bundleIdentifier, category: "\(self.logerName)"), type: OSLogType(UInt8(level.rawValue)), "\(self.logerName)", (self.isShowLevel ? level.logo + " " : "") + string)
         }
     }
 
@@ -274,19 +286,7 @@ public extension Loger {
     }
 
     fileprivate func returnFileName(_ level: Level) -> String {
-        var fileNameString = ""
-        switch level {
-            case .info:
-                fileNameString = "info"
-            case .debug:
-                fileNameString = "debug"
-            case .warning:
-                fileNameString = "warning"
-            case .error:
-                fileNameString = "error"
-            default:
-                break
-        }
+        var fileNameString = level.name.lowercased()
         let dateComponents = Calendar.current.dateComponents(Set<Calendar.Component>.init(arrayLiteral: .year, .month, .day, .weekOfYear), from: Date())
         let fileFormatters = self.fileFormatter.components(separatedBy: "-")
         if fileFormatters.contains("Y") {
@@ -324,21 +324,6 @@ public extension Loger {
         }
 
         let dateTime = self.isShowLongTime ? "\(self.dateFormatter.string(from: Date()))" : "\(self.dateShortFormatter.string(from: Date()))"
-        var levelString = ""
-        switch level {
-            case .debug:
-                levelString += "🟢"
-            case .info:
-                levelString += "⚪"
-            case .warning:
-                levelString += "🟡"
-            case .error:
-                levelString += "🔴"
-            default:
-                break
-        }
-        levelString = self.isShowLevel ? levelString : ""
-
         var fileString = ""
         if self.isShowFileName {
             fileString += "[" + (file as NSString).lastPathComponent
@@ -354,7 +339,7 @@ public extension Loger {
 
         let threadID = String(unsafeBitCast(Thread.current, to: Int.self), radix: 16, uppercase: false)
         let isMain = self.isShowThread ? Thread.current.isMainThread ? "[Main]" : "[Global]<0x\(threadID)>" : ""
-        let infoString = "\(levelString) \(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
+        let infoString = "\(fileString) \(isMain) \(functionString)".trimmingCharacters(in: CharacterSet(charactersIn: " "))
 
         var logString = ""
         values.forEach { tempValue in
@@ -363,13 +348,9 @@ public extension Loger {
             logString += tempLog
         }
 
-        logString = infoString + (infoString.isEmpty ? "" : " => ") + logString
+        logString = infoString + (infoString.isEmpty ? "=>" : "\n=> ") + logString
 
-        if self.toConsole {
-            self.dvt_printToConsole(logString)
-        } else {
-            Swift.print("\(dateTime) [\(self.logerName)] " + logString)
-        }
+        self.dvt_printToConsole(logString, level: level)
 
         logString = "\(dateTime) [\(self.logerName)] " + logString
         self.printToFile(level, log: logString)
@@ -378,6 +359,14 @@ public extension Loger {
 }
 
 public extension Loger {
+    @discardableResult func notice(function: String = #function,
+                                   file: String = #file,
+                                   line: Int = #line,
+                                   _ values: Any...,
+                                   separator: String = " ") -> String {
+        return self.log(.default, function: function, file: file, line: line, values: values, separator: separator)
+    }
+
     @discardableResult func info(function: String = #function,
                                  file: String = #file,
                                  line: Int = #line,
@@ -394,12 +383,13 @@ public extension Loger {
         return self.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
+    @available(*, deprecated, message: "该方法已经弃用")
     @discardableResult func warning(function: String = #function,
                                     file: String = #file,
                                     line: Int = #line,
                                     _ values: Any...,
                                     separator: String = " ") -> String {
-        return self.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
+        return self.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult func error(function: String = #function,
@@ -409,11 +399,27 @@ public extension Loger {
                                   separator: String = " ") -> String {
         return self.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
+
+    @discardableResult func fault(function: String = #function,
+                                  file: String = #file,
+                                  line: Int = #line,
+                                  _ values: Any...,
+                                  separator: String = " ") -> String {
+        return self.log(.fault, function: function, file: file, line: line, values: values, separator: separator)
+    }
 }
 
 private let selfLoger = Loger()
 public extension Loger {
     static var `default`: Loger = selfLoger
+
+    @discardableResult static func notice(function: String = #function,
+                                          file: String = #file,
+                                          line: Int = #line,
+                                          _ values: Any...,
+                                          separator: String = " ") -> String {
+        return selfLoger.log(.default, function: function, file: file, line: line, values: values, separator: separator)
+    }
 
     @discardableResult static func info(function: String = #function,
                                         file: String = #file,
@@ -431,12 +437,13 @@ public extension Loger {
         return selfLoger.log(.debug, function: function, file: file, line: line, values: values, separator: separator)
     }
 
+    @available(*, deprecated, message: "该方法已经弃用")
     @discardableResult static func warning(function: String = #function,
                                            file: String = #file,
                                            line: Int = #line,
                                            _ values: Any...,
                                            separator: String = " ") -> String {
-        return selfLoger.log(.warning, function: function, file: file, line: line, values: values, separator: separator)
+        return selfLoger.log(.error, function: function, file: file, line: line, values: values, separator: separator)
     }
 
     @discardableResult static func error(function: String = #function,
@@ -445,6 +452,14 @@ public extension Loger {
                                          _ values: Any...,
                                          separator: String = " ") -> String {
         return selfLoger.log(.error, function: function, file: file, line: line, values: values, separator: separator)
+    }
+
+    @discardableResult static func fault(function: String = #function,
+                                         file: String = #file,
+                                         line: Int = #line,
+                                         _ values: Any...,
+                                         separator: String = " ") -> String {
+        return selfLoger.log(.fault, function: function, file: file, line: line, values: values, separator: separator)
     }
 }
 
