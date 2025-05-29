@@ -13,9 +13,8 @@ Pod::Spec.new do |s|
   s.author           = { 'darvin' => 'darvin@tcoding.cn' }
   s.source           = { :git => 'https://github.com/darvintang/DVTLoger.git', :tag => s.version.to_s }
 
-  s.ios.deployment_target = '14'
-  s.osx.deployment_target = '12'
-
+  s.ios.deployment_target = '13'
+  
   s.source_files = 'Sources/*.swift'
 
   s.swift_version = '5'
